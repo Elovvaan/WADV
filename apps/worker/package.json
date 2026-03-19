@@ -1,0 +1,16 @@
+{
+  "name": "@wadv/worker",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "echo 'lint skipped for @wadv/worker'"
+  },
+  "dependencies": {
+    "@wadv/lib": "workspace:*",
+    "bullmq": "^5.49.1",
+    "ioredis": "^5.6.1"
+  }
+}

@@ -1,0 +1,285 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PlanTier {
+  FREE
+  CREATOR
+  STUDIO
+}
+
+enum ProjectFormatType {
+  SHORT_CLIP
+  SCENE
+  EPISODE
+}
+
+enum ProjectStatus {
+  DRAFT
+  PLANNING
+  GENERATING
+  REVIEW
+  APPROVED
+  EXPORTED
+}
+
+enum SceneStatus {
+  DRAFT
+  PLANNED
+  GENERATING
+  REVIEW
+  APPROVED
+}
+
+enum ShotStatus {
+  DRAFT
+  QUEUED
+  GENERATING
+  READY
+  FAILED
+}
+
+enum AssetProcessingStatus {
+  UPLOADED
+  PROCESSING
+  READY
+  FAILED
+}
+
+enum StylePreservationMode {
+  STRICT
+  BALANCED
+  ADAPTIVE
+}
+
+enum RealismMode {
+  STYLIZED
+  HYBRID
+  HUMAN_LIKE
+  CINEMATIC
+}
+
+enum GenerationJobType {
+  PARSE_SCRIPT
+  PROCESS_VOICE
+  PROCESS_ART
+  PROCESS_LIVE_ACTION
+  GENERATE_SCENE
+  REGENERATE_SHOT
+  EXPORT_PROJECT
+}
+
+enum GenerationJobStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum ExportStatus {
+  QUEUED
+  RENDERING
+  READY
+  FAILED
+}
+
+model User {
+  id              String          @id @default(cuid())
+  email           String          @unique
+  name            String
+  passwordHash    String
+  plan            PlanTier        @default(FREE)
+  creditsBalance  Int             @default(250)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  projects        Project[]
+  voiceProfiles   VoiceProfile[]
+  billingEvents   BillingEvent[]
+}
+
+model Project {
+  id                String              @id @default(cuid())
+  userId            String
+  title             String
+  description       String
+  formatType        ProjectFormatType
+  genre             String
+  targetDuration    Int
+  status            ProjectStatus       @default(DRAFT)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  episodes          Episode[]
+  characters        Character[]
+  liveActionAssets  LiveActionAsset[]
+  artAssets         ArtAsset[]
+  directorReports   DirectorReport[]
+  generationJobs    GenerationJob[]
+  exports           Export[]
+}
+
+model Episode {
+  id          String    @id @default(cuid())
+  projectId   String
+  title       String
+  orderIndex  Int
+  status      String
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  scenes      Scene[]
+}
+
+model Scene {
+  id                     String          @id @default(cuid())
+  episodeId              String
+  title                  String
+  scriptText             String
+  orderIndex             Int
+  durationTargetSeconds  Int
+  status                 SceneStatus     @default(DRAFT)
+  directorNotes          String?
+  generatedPreviewUrl    String?
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
+  episode                Episode         @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  shots                  Shot[]
+  liveActionAssets       LiveActionAsset[]
+  generationJobs         GenerationJob[]
+}
+
+model Shot {
+  id               String          @id @default(cuid())
+  sceneId          String
+  orderIndex       Int
+  shotType         String
+  cameraDirection  String
+  promptText       String
+  durationSeconds  Int
+  status           ShotStatus      @default(DRAFT)
+  previewUrl       String?
+  scene            Scene           @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+  generationJobs   GenerationJob[]
+}
+
+model Character {
+  id            String                     @id @default(cuid())
+  projectId     String
+  name          String
+  role          String
+  realismMode   RealismMode                @default(STYLIZED)
+  stylePreset   String
+  bibleJson     Json
+  createdAt     DateTime                   @default(now())
+  updatedAt     DateTime                   @updatedAt
+  project       Project                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assets        CharacterAsset[]
+  assignments   CharacterVoiceAssignment[]
+  artAssets     ArtAsset[]
+
+  @@unique([projectId, name])
+}
+
+model CharacterAsset {
+  id            String     @id @default(cuid())
+  characterId   String
+  type          String
+  fileUrl       String
+  metadataJson  Json
+  character     Character  @relation(fields: [characterId], references: [id], onDelete: Cascade)
+}
+
+model VoiceProfile {
+  id              String                     @id @default(cuid())
+  userId          String
+  name            String
+  sourceType      String
+  provider        String
+  metadataJson    Json
+  audioSampleUrl  String
+  user            User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignments     CharacterVoiceAssignment[]
+}
+
+model CharacterVoiceAssignment {
+  id              String       @id @default(cuid())
+  characterId     String
+  voiceProfileId  String
+  character       Character    @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  voiceProfile    VoiceProfile @relation(fields: [voiceProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([characterId, voiceProfileId])
+}
+
+model LiveActionAsset {
+  id            String                 @id @default(cuid())
+  projectId     String
+  sceneId       String?
+  fileUrl       String
+  status        AssetProcessingStatus  @default(UPLOADED)
+  metadataJson  Json
+  project       Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  scene         Scene?                 @relation(fields: [sceneId], references: [id], onDelete: SetNull)
+}
+
+model ArtAsset {
+  id                     String                 @id @default(cuid())
+  projectId              String
+  characterId            String?
+  fileUrl                String
+  stylePreservationMode  StylePreservationMode
+  metadataJson           Json
+  project                Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  character              Character?             @relation(fields: [characterId], references: [id], onDelete: SetNull)
+}
+
+model DirectorReport {
+  id          String   @id @default(cuid())
+  projectId   String   @unique
+  reportJson  Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model GenerationJob {
+  id          String               @id @default(cuid())
+  projectId   String
+  sceneId     String?
+  shotId      String?
+  jobType     GenerationJobType
+  provider    String
+  status      GenerationJobStatus  @default(QUEUED)
+  inputJson   Json
+  outputJson  Json?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  project     Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  scene       Scene?               @relation(fields: [sceneId], references: [id], onDelete: SetNull)
+  shot        Shot?                @relation(fields: [shotId], references: [id], onDelete: SetNull)
+}
+
+model Export {
+  id          String        @id @default(cuid())
+  projectId   String
+  format      String
+  resolution  String
+  status      ExportStatus  @default(QUEUED)
+  fileUrl     String?
+  metadataJson Json
+  createdAt   DateTime      @default(now())
+  project     Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model BillingEvent {
+  id           String   @id @default(cuid())
+  userId       String
+  type         String
+  creditsUsed  Int
+  metadataJson Json
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
