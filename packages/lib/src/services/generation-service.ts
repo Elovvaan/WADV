@@ -31,6 +31,7 @@ export class GenerationService {
         data: {
           status: 'GENERATING',
           generatedPreviewUrl: storyboard?.previewUrl,
+          storyboardJson: storyboard ? { previewUrl: storyboard.previewUrl, metadata: storyboard.metadata } : undefined,
         },
       });
 
@@ -99,5 +100,20 @@ export class GenerationService {
 
     await enqueueJob('export-project', { exportId: created.id, projectId });
     return created;
+  }
+
+  async queueDirectorLoop(projectId: string, triggerType: 'MANUAL' | 'EVENT' | 'SCHEDULED' = 'MANUAL', policyMode: 'suggest_only' | 'safe_auto_fix' | 'studio_autopilot' = 'safe_auto_fix') {
+    const queueJob = await enqueueJob('director-loop', { projectId, triggerType, policyMode });
+    const dbJob = await prisma.generationJob.create({
+      data: {
+        projectId,
+        jobType: 'DIRECTOR_LOOP',
+        provider: 'wadv-director-loop',
+        status: 'QUEUED',
+        inputJson: { projectId, triggerType, policyMode },
+      },
+    });
+
+    return { queueJob, dbJob };
   }
 }

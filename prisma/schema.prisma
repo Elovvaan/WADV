@@ -32,7 +32,9 @@ enum SceneStatus {
   DRAFT
   PLANNED
   GENERATING
-  REVIEW
+  REVIEWING
+  NEEDS_FIX
+  READY
   APPROVED
 }
 
@@ -72,6 +74,7 @@ enum GenerationJobType {
   GENERATE_SCENE
   REGENERATE_SHOT
   EXPORT_PROJECT
+  DIRECTOR_LOOP
 }
 
 enum GenerationJobStatus {
@@ -88,190 +91,261 @@ enum ExportStatus {
   FAILED
 }
 
+enum AgentTriggerType {
+  MANUAL
+  EVENT
+  SCHEDULED
+}
+
+enum AgentRunStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+  PARTIAL
+}
+
+enum AgentTaskPriority {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum AgentTaskStatus {
+  PENDING
+  BLOCKED
+  RUNNING
+  COMPLETED
+  FAILED
+  SKIPPED
+}
+
+enum AgentActionStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+  SKIPPED
+}
+
 model User {
-  id              String          @id @default(cuid())
-  email           String          @unique
-  name            String
-  passwordHash    String
-  plan            PlanTier        @default(FREE)
-  creditsBalance  Int             @default(250)
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  projects        Project[]
-  voiceProfiles   VoiceProfile[]
-  billingEvents   BillingEvent[]
+  id             String         @id @default(cuid())
+  email          String         @unique
+  name           String
+  passwordHash   String
+  plan           PlanTier       @default(FREE)
+  creditsBalance Int            @default(250)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  projects       Project[]
+  voiceProfiles  VoiceProfile[]
+  billingEvents  BillingEvent[]
+  notifications  Notification[]
 }
 
 model Project {
-  id                String              @id @default(cuid())
+  id                String               @id @default(cuid())
   userId            String
   title             String
   description       String
   formatType        ProjectFormatType
   genre             String
   targetDuration    Int
-  status            ProjectStatus       @default(DRAFT)
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
-  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status            ProjectStatus        @default(DRAFT)
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  user              User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
   episodes          Episode[]
   characters        Character[]
+  locations         Location[]
   liveActionAssets  LiveActionAsset[]
   artAssets         ArtAsset[]
   directorReports   DirectorReport[]
   generationJobs    GenerationJob[]
   exports           Export[]
+  agentRuns         AgentRun[]
+  agentTasks        AgentTask[]
+  agentObservations AgentObservation[]
+  agentActions      AgentAction[]
+  notifications     Notification[]
+  learningEvents    AgentLearningEvent[]
 }
 
 model Episode {
-  id          String    @id @default(cuid())
-  projectId   String
-  title       String
-  orderIndex  Int
-  status      String
-  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  scenes      Scene[]
+  id         String  @id @default(cuid())
+  projectId  String
+  title      String
+  orderIndex Int
+  status     String
+  project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  scenes     Scene[]
 }
 
 model Scene {
-  id                     String          @id @default(cuid())
-  episodeId              String
-  title                  String
-  scriptText             String
-  orderIndex             Int
-  durationTargetSeconds  Int
-  status                 SceneStatus     @default(DRAFT)
-  directorNotes          String?
-  generatedPreviewUrl    String?
-  createdAt              DateTime        @default(now())
-  updatedAt              DateTime        @updatedAt
-  episode                Episode         @relation(fields: [episodeId], references: [id], onDelete: Cascade)
-  shots                  Shot[]
-  liveActionAssets       LiveActionAsset[]
-  generationJobs         GenerationJob[]
+  id                    String             @id @default(cuid())
+  episodeId             String
+  locationId            String?
+  title                 String
+  scriptText            String
+  orderIndex            Int
+  durationTargetSeconds Int
+  status                SceneStatus        @default(DRAFT)
+  directorNotes         String?
+  storyboardJson        Json?
+  shotPlanJson          Json?
+  generatedPreviewUrl   String?
+  qualityScore          Int?
+  latestTestResultsJson Json?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+  episode               Episode            @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  location              Location?          @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  shots                 Shot[]
+  liveActionAssets      LiveActionAsset[]
+  generationJobs        GenerationJob[]
+  agentTasks            AgentTask[]
+  agentObservations     AgentObservation[]
+  agentActions          AgentAction[]
+  attempts              SceneAttempt[]
 }
 
 model Shot {
-  id               String          @id @default(cuid())
-  sceneId          String
-  orderIndex       Int
-  shotType         String
-  cameraDirection  String
-  promptText       String
-  durationSeconds  Int
-  status           ShotStatus      @default(DRAFT)
-  previewUrl       String?
-  scene            Scene           @relation(fields: [sceneId], references: [id], onDelete: Cascade)
-  generationJobs   GenerationJob[]
+  id              String          @id @default(cuid())
+  sceneId         String
+  orderIndex      Int
+  shotType        String
+  cameraDirection String
+  promptText      String
+  durationSeconds Int
+  status          ShotStatus      @default(DRAFT)
+  previewUrl      String?
+  scene           Scene           @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+  generationJobs  GenerationJob[]
 }
 
 model Character {
-  id            String                     @id @default(cuid())
-  projectId     String
-  name          String
-  role          String
-  realismMode   RealismMode                @default(STYLIZED)
-  stylePreset   String
-  bibleJson     Json
-  createdAt     DateTime                   @default(now())
-  updatedAt     DateTime                   @updatedAt
-  project       Project                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  assets        CharacterAsset[]
-  assignments   CharacterVoiceAssignment[]
-  artAssets     ArtAsset[]
+  id             String                     @id @default(cuid())
+  projectId      String
+  defaultVoiceId String?
+  name           String
+  role           String
+  realismMode    RealismMode                @default(STYLIZED)
+  stylePreset    String
+  bibleJson      Json
+  createdAt      DateTime                   @default(now())
+  updatedAt      DateTime                   @updatedAt
+  project        Project                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  defaultVoice   VoiceProfile?              @relation("DefaultVoiceProfile", fields: [defaultVoiceId], references: [id], onDelete: SetNull)
+  assets         CharacterAsset[]
+  assignments    CharacterVoiceAssignment[]
+  artAssets      ArtAsset[]
 
   @@unique([projectId, name])
 }
 
 model CharacterAsset {
-  id            String     @id @default(cuid())
-  characterId   String
-  type          String
-  fileUrl       String
-  metadataJson  Json
-  character     Character  @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  id           String    @id @default(cuid())
+  characterId  String
+  type         String
+  fileUrl      String
+  metadataJson Json
+  character    Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
 }
 
 model VoiceProfile {
-  id              String                     @id @default(cuid())
-  userId          String
-  name            String
-  sourceType      String
-  provider        String
-  metadataJson    Json
-  audioSampleUrl  String
-  user            User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  assignments     CharacterVoiceAssignment[]
+  id             String                     @id @default(cuid())
+  userId         String
+  name           String
+  sourceType     String
+  provider       String
+  metadataJson   Json
+  audioSampleUrl String
+  user           User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignments    CharacterVoiceAssignment[]
+  defaultFor     Character[]                @relation("DefaultVoiceProfile")
 }
 
 model CharacterVoiceAssignment {
-  id              String       @id @default(cuid())
-  characterId     String
-  voiceProfileId  String
-  character       Character    @relation(fields: [characterId], references: [id], onDelete: Cascade)
-  voiceProfile    VoiceProfile @relation(fields: [voiceProfileId], references: [id], onDelete: Cascade)
+  id             String       @id @default(cuid())
+  characterId    String
+  voiceProfileId String
+  character      Character    @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  voiceProfile   VoiceProfile @relation(fields: [voiceProfileId], references: [id], onDelete: Cascade)
 
   @@unique([characterId, voiceProfileId])
 }
 
+model Location {
+  id           String   @id @default(cuid())
+  projectId    String
+  name         String
+  description  String
+  metadataJson Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  scenes       Scene[]
+
+  @@unique([projectId, name])
+}
+
 model LiveActionAsset {
-  id            String                 @id @default(cuid())
-  projectId     String
-  sceneId       String?
-  fileUrl       String
-  status        AssetProcessingStatus  @default(UPLOADED)
-  metadataJson  Json
-  project       Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  scene         Scene?                 @relation(fields: [sceneId], references: [id], onDelete: SetNull)
+  id           String                @id @default(cuid())
+  projectId    String
+  sceneId      String?
+  fileUrl      String
+  status       AssetProcessingStatus @default(UPLOADED)
+  metadataJson Json
+  project      Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  scene        Scene?                @relation(fields: [sceneId], references: [id], onDelete: SetNull)
 }
 
 model ArtAsset {
-  id                     String                 @id @default(cuid())
-  projectId              String
-  characterId            String?
-  fileUrl                String
-  stylePreservationMode  StylePreservationMode
-  metadataJson           Json
-  project                Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  character              Character?             @relation(fields: [characterId], references: [id], onDelete: SetNull)
+  id                    String                @id @default(cuid())
+  projectId             String
+  characterId           String?
+  fileUrl               String
+  stylePreservationMode StylePreservationMode
+  metadataJson          Json
+  project               Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  character             Character?            @relation(fields: [characterId], references: [id], onDelete: SetNull)
 }
 
 model DirectorReport {
-  id          String   @id @default(cuid())
-  projectId   String   @unique
-  reportJson  Json
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  projectId  String   @unique
+  reportJson Json
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
 model GenerationJob {
-  id          String               @id @default(cuid())
-  projectId   String
-  sceneId     String?
-  shotId      String?
-  jobType     GenerationJobType
-  provider    String
-  status      GenerationJobStatus  @default(QUEUED)
-  inputJson   Json
-  outputJson  Json?
-  createdAt   DateTime             @default(now())
-  updatedAt   DateTime             @updatedAt
-  project     Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  scene       Scene?               @relation(fields: [sceneId], references: [id], onDelete: SetNull)
-  shot        Shot?                @relation(fields: [shotId], references: [id], onDelete: SetNull)
+  id         String              @id @default(cuid())
+  projectId  String
+  sceneId    String?
+  shotId     String?
+  jobType    GenerationJobType
+  provider   String
+  status     GenerationJobStatus @default(QUEUED)
+  inputJson  Json
+  outputJson Json?
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+  project    Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  scene      Scene?              @relation(fields: [sceneId], references: [id], onDelete: SetNull)
+  shot       Shot?               @relation(fields: [shotId], references: [id], onDelete: SetNull)
 }
 
 model Export {
-  id          String        @id @default(cuid())
-  projectId   String
-  format      String
-  resolution  String
-  status      ExportStatus  @default(QUEUED)
-  fileUrl     String?
+  id           String       @id @default(cuid())
+  projectId    String
+  format       String
+  resolution   String
+  status       ExportStatus @default(QUEUED)
+  fileUrl      String?
   metadataJson Json
-  createdAt   DateTime      @default(now())
-  project     Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt    DateTime     @default(now())
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
 model BillingEvent {
@@ -282,4 +356,93 @@ model BillingEvent {
   metadataJson Json
   createdAt    DateTime @default(now())
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AgentRun {
+  id          String           @id @default(cuid())
+  projectId   String
+  agentName   String
+  triggerType AgentTriggerType
+  status      AgentRunStatus
+  summary     String?
+  startedAt   DateTime         @default(now())
+  finishedAt  DateTime?
+  project     Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model AgentTask {
+  id         String            @id @default(cuid())
+  projectId  String
+  sceneId    String?
+  type       String
+  priority   AgentTaskPriority
+  status     AgentTaskStatus   @default(PENDING)
+  inputJson  Json
+  outputJson Json?
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  project    Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  scene      Scene?            @relation(fields: [sceneId], references: [id], onDelete: SetNull)
+}
+
+model AgentObservation {
+  id        String   @id @default(cuid())
+  projectId String
+  sceneId   String?
+  category  String
+  severity  String
+  message   String
+  dataJson  Json?
+  createdAt DateTime @default(now())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  scene     Scene?   @relation(fields: [sceneId], references: [id], onDelete: SetNull)
+}
+
+model AgentAction {
+  id         String            @id @default(cuid())
+  projectId  String
+  sceneId    String?
+  toolName   String
+  status     AgentActionStatus
+  inputJson  Json
+  outputJson Json?
+  createdAt  DateTime          @default(now())
+  project    Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  scene      Scene?            @relation(fields: [sceneId], references: [id], onDelete: SetNull)
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  projectId String
+  type      String
+  title     String
+  body      String
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project   Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model SceneAttempt {
+  id              String   @id @default(cuid())
+  sceneId         String
+  attemptNumber   Int
+  qualityScore    Int
+  testResultsJson Json
+  createdAt       DateTime @default(now())
+  scene           Scene    @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+
+  @@unique([sceneId, attemptNumber])
+}
+
+model AgentLearningEvent {
+  id           String   @id @default(cuid())
+  projectId    String
+  sceneId      String?
+  feedbackType String
+  signal       String
+  metadataJson Json?
+  createdAt    DateTime @default(now())
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }

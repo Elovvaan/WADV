@@ -4,8 +4,10 @@
     "outDir": "dist",
     "rootDir": "src",
     "declaration": true,
-    "emitDeclarationOnly": true,
-    "types": ["node"]
+    "emitDeclarationOnly": true
   },
-  "include": ["src/**/*.ts"]
+  "include": [
+    "src/**/*.ts",
+    "../../types/**/*.d.ts"
+  ]
 }

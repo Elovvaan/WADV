@@ -9,7 +9,8 @@ export type QueueJobName =
   | 'process-live-action'
   | 'generate-scene'
   | 'regenerate-shot'
-  | 'export-project';
+  | 'export-project'
+  | 'director-loop';
 
 let queue: Queue | null = null;
 
@@ -39,5 +40,5 @@ export async function enqueueJob(name: QueueJobName, data: Record<string, unknow
     removeOnFail: 100,
   });
 
-  return { id: job.id, status: 'QUEUED', mock: false };
+  return { id: String(job.id), status: 'QUEUED', mock: false };
 }

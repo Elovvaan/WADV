@@ -26,7 +26,7 @@ export const sceneUpdateSchema = z.object({
   title: z.string().min(2).optional(),
   scriptText: z.string().min(10).optional(),
   directorNotes: z.string().min(4).optional(),
-  status: z.enum(['DRAFT', 'PLANNED', 'GENERATING', 'REVIEW', 'APPROVED']).optional(),
+  status: z.enum(['DRAFT', 'PLANNED', 'GENERATING', 'REVIEWING', 'NEEDS_FIX', 'READY', 'APPROVED']).optional(),
 });
 
 export const characterSchema = z.object({
@@ -56,4 +56,92 @@ export const liveActionSchema = z.object({
 export const exportSchema = z.object({
   format: z.enum(['draft_preview', 'final_video']),
   resolution: z.enum(['1080p', '1440p', '4k']).default('1080p'),
+});
+
+export const policyModeSchema = z.enum(['suggest_only', 'safe_auto_fix', 'studio_autopilot']);
+export const triggerTypeSchema = z.enum(['MANUAL', 'EVENT', 'SCHEDULED']);
+export const taskPrioritySchema = z.enum(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']);
+
+export const toolContextSchema = z.object({
+  projectId: z.string().cuid(),
+  sceneId: z.string().cuid().optional(),
+  actor: z.string().default('WADV Director'),
+});
+
+export const analyzeProjectStoryInputSchema = z.object({
+  projectId: z.string().cuid(),
+});
+
+export const generateSceneBreakdownInputSchema = z.object({
+  projectId: z.string().cuid(),
+  sceneId: z.string().cuid(),
+});
+
+export const createCharacterBibleInputSchema = z.object({
+  projectId: z.string().cuid(),
+  characterId: z.string().cuid().optional(),
+});
+
+export const assignSceneLocationInputSchema = z.object({
+  projectId: z.string().cuid(),
+  sceneId: z.string().cuid(),
+  preferredLocationName: z.string().min(2).optional(),
+});
+
+export const assignVoiceToCharacterInputSchema = z.object({
+  projectId: z.string().cuid(),
+  characterId: z.string().cuid(),
+  voiceProfileId: z.string().cuid().optional(),
+});
+
+export const generateStoryboardInputSchema = z.object({
+  projectId: z.string().cuid(),
+  sceneId: z.string().cuid(),
+});
+
+export const generateScenePreviewInputSchema = z.object({
+  projectId: z.string().cuid(),
+  sceneId: z.string().cuid(),
+});
+
+export const regenerateSceneInputSchema = z.object({
+  projectId: z.string().cuid(),
+  sceneId: z.string().cuid(),
+  reason: z.string().min(3).optional(),
+});
+
+export const regenerateShotInputSchema = z.object({
+  shotId: z.string().cuid(),
+});
+
+export const detectContinuityIssuesInputSchema = z.object({
+  projectId: z.string().cuid(),
+  sceneId: z.string().cuid().optional(),
+});
+
+export const scoreSceneQualityInputSchema = z.object({
+  projectId: z.string().cuid(),
+  sceneId: z.string().cuid(),
+});
+
+export const queuePreviewExportInputSchema = z.object({
+  projectId: z.string().cuid(),
+  format: z.enum(['draft_preview', 'final_video']).default('draft_preview'),
+  resolution: z.enum(['1080p', '1440p', '4k']).default('1080p'),
+});
+
+export const taskInputSchema = z.object({
+  projectId: z.string().cuid(),
+  sceneId: z.string().cuid().optional(),
+  type: z.string().min(2),
+  priority: taskPrioritySchema,
+  input: z.record(z.string(), z.unknown()).default({}),
+});
+
+export const directorLoopInputSchema = z.object({
+  projectId: z.string().cuid(),
+  triggerType: triggerTypeSchema.default('MANUAL'),
+  policyMode: policyModeSchema.default('safe_auto_fix'),
+  maxSceneAttempts: z.number().int().min(1).max(10).default(3),
+  qualityThreshold: z.number().int().min(0).max(100).default(75),
 });
