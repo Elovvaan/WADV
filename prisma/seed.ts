@@ -1,6 +1,13 @@
 import { prisma, demoDirectorPlan, demoStory, demoUser } from '@wadv/lib';
 
 async function main() {
+  await prisma.agentLearningEvent.deleteMany();
+  await prisma.sceneAttempt.deleteMany();
+  await prisma.notification.deleteMany();
+  await prisma.agentAction.deleteMany();
+  await prisma.agentObservation.deleteMany();
+  await prisma.agentTask.deleteMany();
+  await prisma.agentRun.deleteMany();
   await prisma.characterVoiceAssignment.deleteMany();
   await prisma.characterAsset.deleteMany();
   await prisma.artAsset.deleteMany();
@@ -8,6 +15,7 @@ async function main() {
   await prisma.generationJob.deleteMany();
   await prisma.shot.deleteMany();
   await prisma.scene.deleteMany();
+  await prisma.location.deleteMany();
   await prisma.episode.deleteMany();
   await prisma.directorReport.deleteMany();
   await prisma.export.deleteMany();
@@ -39,6 +47,25 @@ async function main() {
     },
   });
 
+  const [rooftopLocation, cathedralLocation] = await Promise.all([
+    prisma.location.create({
+      data: {
+        projectId: project.id,
+        name: 'Rooftop Memory Tower',
+        description: 'Neon rooftop with rain reflections and skyline memory towers.',
+        metadataJson: { lighting: 'rain haze', palette: ['cobalt', 'violet'] },
+      },
+    }),
+    prisma.location.create({
+      data: {
+        projectId: project.id,
+        name: 'Transit Cathedral',
+        description: 'Massive transit atrium with holographic stained glass.',
+        metadataJson: { scale: 'grand', palette: ['amber', 'graphite'] },
+      },
+    }),
+  ]);
+
   const episode = await prisma.episode.create({
     data: {
       projectId: project.id,
@@ -52,13 +79,31 @@ async function main() {
     prisma.scene.create({
       data: {
         episodeId: episode.id,
+        locationId: rooftopLocation.id,
         title: 'Rooftop Recall',
         scriptText: demoStory,
         orderIndex: 1,
         durationTargetSeconds: 44,
-        status: 'PLANNED',
+        status: 'READY',
         directorNotes: 'Play longing first, then let urgency cut through when Mira arrives.',
+        storyboardJson: { frameCount: 6, source: 'seed' },
+        shotPlanJson: { beats: ['arrival', 'warning', 'decision'], source: 'seed' },
         generatedPreviewUrl: 'https://placehold.co/1280x720/060b18/c6d8ff?text=Rooftop+Recall',
+        qualityScore: 82,
+        latestTestResultsJson: {
+          passed: true,
+          threshold: 75,
+          qualityScore: 82,
+          results: [
+            { name: 'has_storyboard', pass: true, reason: 'Storyboard is available.' },
+            { name: 'has_shot_plan', pass: true, reason: 'Shot plan exists.' },
+            { name: 'has_character_assignment', pass: true, reason: 'Characters are assigned.' },
+            { name: 'has_location_assignment', pass: true, reason: 'Location is assigned.' },
+            { name: 'has_voice_assignment', pass: true, reason: 'Voice is assigned.' },
+            { name: 'has_preview_render', pass: true, reason: 'Preview exists.' },
+            { name: 'quality_score', pass: true, reason: 'Score meets threshold.' },
+          ],
+        },
       },
     }),
     prisma.scene.create({
@@ -68,9 +113,24 @@ async function main() {
         scriptText: 'Ren and Mira descend through the vast station atrium to recover the lost voiceprint before sunrise.',
         orderIndex: 2,
         durationTargetSeconds: 58,
-        status: 'REVIEW',
+        status: 'NEEDS_FIX',
         directorNotes: 'Scale and atmosphere should amplify the growing trust between them.',
-        generatedPreviewUrl: 'https://placehold.co/1280x720/09101f/f2f7ff?text=Transit+Cathedral',
+        shotPlanJson: { beats: ['descent', 'reveal'], source: 'seed' },
+        qualityScore: 61,
+        latestTestResultsJson: {
+          passed: false,
+          threshold: 75,
+          qualityScore: 61,
+          results: [
+            { name: 'has_storyboard', pass: false, reason: 'Storyboard is missing.' },
+            { name: 'has_shot_plan', pass: true, reason: 'Shot plan exists.' },
+            { name: 'has_character_assignment', pass: true, reason: 'Characters are assigned.' },
+            { name: 'has_location_assignment', pass: false, reason: 'Location assignment is missing.' },
+            { name: 'has_voice_assignment', pass: true, reason: 'Voice is assigned.' },
+            { name: 'has_preview_render', pass: false, reason: 'Preview render is missing.' },
+            { name: 'quality_score', pass: false, reason: 'Quality is below threshold.' },
+          ],
+        },
       },
     }),
   ]);
@@ -186,6 +246,7 @@ async function main() {
     },
   });
 
+  await prisma.character.update({ where: { id: mira.id }, data: { defaultVoiceId: voice.id } });
   await prisma.characterVoiceAssignment.create({
     data: {
       characterId: mira.id,
@@ -227,10 +288,135 @@ async function main() {
       {
         projectId: project.id,
         sceneId: sceneTwo.id,
-        jobType: 'GENERATE_SCENE',
-        provider: 'mock-image-video-stack',
+        jobType: 'DIRECTOR_LOOP',
+        provider: 'wadv-director-loop',
         status: 'RUNNING',
-        inputJson: { mode: 'video_scene' },
+        inputJson: { mode: 'safe_auto_fix' },
+      },
+    ],
+  });
+
+  await prisma.sceneAttempt.createMany({
+    data: [
+      {
+        sceneId: sceneOne.id,
+        attemptNumber: 1,
+        qualityScore: 82,
+        testResultsJson: sceneOne.latestTestResultsJson ?? {},
+      },
+      {
+        sceneId: sceneTwo.id,
+        attemptNumber: 1,
+        qualityScore: 61,
+        testResultsJson: sceneTwo.latestTestResultsJson ?? {},
+      },
+    ],
+  });
+
+  await prisma.agentRun.create({
+    data: {
+      projectId: project.id,
+      agentName: 'WADV Director',
+      triggerType: 'MANUAL',
+      status: 'PARTIAL',
+      summary: 'Scene 1 is ready. Scene 2 requires storyboard, location, and preview remediation.',
+      finishedAt: new Date(),
+    },
+  });
+
+  await prisma.agentObservation.createMany({
+    data: [
+      {
+        projectId: project.id,
+        sceneId: sceneTwo.id,
+        category: 'missing_storyboard',
+        severity: 'HIGH',
+        message: 'Transit Cathedral Descent is missing a storyboard.',
+      },
+      {
+        projectId: project.id,
+        sceneId: sceneTwo.id,
+        category: 'missing_location',
+        severity: 'HIGH',
+        message: 'Transit Cathedral Descent has no location assignment.',
+      },
+      {
+        projectId: project.id,
+        sceneId: sceneTwo.id,
+        category: 'low_quality_score',
+        severity: 'MEDIUM',
+        message: 'Transit Cathedral Descent is below the quality threshold.',
+        dataJson: { qualityScore: 61 },
+      },
+    ],
+  });
+
+  await prisma.agentTask.createMany({
+    data: [
+      {
+        projectId: project.id,
+        sceneId: sceneTwo.id,
+        type: 'generate_storyboard',
+        priority: 'HIGH',
+        status: 'PENDING',
+        inputJson: { projectId: project.id, sceneId: sceneTwo.id },
+      },
+      {
+        projectId: project.id,
+        sceneId: sceneTwo.id,
+        type: 'assign_scene_location',
+        priority: 'HIGH',
+        status: 'PENDING',
+        inputJson: { projectId: project.id, sceneId: sceneTwo.id },
+      },
+    ],
+  });
+
+  await prisma.agentAction.create({
+    data: {
+      projectId: project.id,
+      sceneId: sceneOne.id,
+      toolName: 'score_scene_quality',
+      status: 'COMPLETED',
+      inputJson: { projectId: project.id, sceneId: sceneOne.id },
+      outputJson: { score: 82 },
+    },
+  });
+
+  await prisma.notification.createMany({
+    data: [
+      {
+        userId: user.id,
+        projectId: project.id,
+        type: 'storyboard_generated',
+        title: 'Storyboard generated for Scene 1',
+        body: 'Rooftop Recall has an approved storyboard and preview stack.',
+      },
+      {
+        userId: user.id,
+        projectId: project.id,
+        type: 'scene_quality_improved',
+        title: 'Scene 1 improved to quality 82',
+        body: 'The Director loop marked Rooftop Recall as ready.',
+      },
+    ],
+  });
+
+  await prisma.agentLearningEvent.createMany({
+    data: [
+      {
+        projectId: project.id,
+        sceneId: sceneOne.id,
+        feedbackType: 'successful_attempt',
+        signal: 'success',
+        metadataJson: { attemptNumber: 1, qualityScore: 82 },
+      },
+      {
+        projectId: project.id,
+        sceneId: sceneTwo.id,
+        feedbackType: 'user_override',
+        signal: 'override',
+        metadataJson: { note: 'Hold on dialogue rewrite until director review.' },
       },
     ],
   });

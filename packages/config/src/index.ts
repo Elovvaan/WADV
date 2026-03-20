@@ -7,6 +7,8 @@ export const appConfig = {
 
 export const navigation = [
   { href: '/app', label: 'Dashboard' },
+  { href: '/director', label: 'Director' },
+  { href: '/scenes', label: 'Scene Loop' },
   { href: '/app/projects/new', label: 'New Project' },
 ];
 

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { appConfig } from '@wadv/config';
 import { DirectorReportPanel, FeatureCard, GlassPanel, Pill, ProjectCard, SectionHeading } from '@wadv/ui';
-import { Clapperboard, Mic2, PencilRuler, ScanFace, WandSparkles } from 'lucide-react';
+import { Bot, Clapperboard, Mic2, PencilRuler, ScanFace, WandSparkles } from 'lucide-react';
 
 const pillars = [
   {
@@ -91,6 +91,40 @@ export default function LandingPage() {
               <div key={item} className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-slate-200">{item}</div>
             ))}
           </GlassPanel>
+        </section>
+
+
+
+        <section className="grid gap-8 py-14 lg:grid-cols-[1fr_1.1fr]">
+          <SectionHeading eyebrow="Agent system" title="From feature app to autonomous anime production loop" description="WADV now treats the Director as a persistent agent: memory in Prisma, tool execution with validation, inspection and prioritization, scene tests, quality scoring, BullMQ loop jobs, and UI visibility into every cycle." />
+          <GlassPanel className="grid gap-4 md:grid-cols-2">
+            {[
+              'Memory: runs, tasks, observations, actions, attempts, notifications',
+              'Tools: storyboard, location, quality score, preview, continuity, export',
+              'Loop: manual, event, and scheduled director cycles',
+              'Tests: storyboard, shot plan, voice, location, preview, quality threshold',
+            ].map((item) => (
+              <div key={item} className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-slate-200">{item}</div>
+            ))}
+          </GlassPanel>
+        </section>
+
+        <section className="grid gap-6 py-14 md:grid-cols-3">
+          {[
+            { href: '/director', title: 'Director Page', description: 'Studio status, observations, actions, recommendations, activity feed, and autopilot mode.', icon: <Bot className="h-5 w-5" /> },
+            { href: '/scenes', title: 'Scene Loops', description: 'Browse every scene with test results, quality scores, and loop entry points.', icon: <Clapperboard className="h-5 w-5" /> },
+            { href: '/scenes', title: 'Attempt Tracking', description: 'See attempt history, scene memory, and progress toward ready status.', icon: <WandSparkles className="h-5 w-5" /> },
+          ].map((item) => (
+            <Link key={item.title} href={item.href}>
+              <GlassPanel className="h-full space-y-4 transition duration-300 hover:border-blue-300/40">
+                <div className="inline-flex rounded-2xl bg-gradient-to-br from-blue-400/20 to-violet-400/20 p-3 text-blue-100">{item.icon}</div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white">{item.title}</h3>
+                  <p className="mt-2 text-sm text-slate-300">{item.description}</p>
+                </div>
+              </GlassPanel>
+            </Link>
+          ))}
         </section>
 
         <section className="space-y-8 py-14">

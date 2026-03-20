@@ -1,6 +1,6 @@
 import { Worker } from 'bullmq';
 import IORedis from 'ioredis';
-import { env, prisma, providerRegistry } from '@wadv/lib';
+import { DirectorLoopJob, env, prisma, providerRegistry } from '@wadv/lib';
 
 if (!env.redisUrl) {
   console.log('[wadv-worker] REDIS_URL not configured. Worker is idle in mock mode.');
@@ -8,6 +8,7 @@ if (!env.redisUrl) {
 }
 
 const connection = new IORedis(env.redisUrl, { maxRetriesPerRequest: null });
+const directorLoopJob = new DirectorLoopJob();
 
 const worker = new Worker('wadv-jobs', async (job) => {
   console.log(`[wadv-worker] processing ${job.name}`);
@@ -20,7 +21,7 @@ const worker = new Worker('wadv-jobs', async (job) => {
         sceneTitle: scene.title,
         promptText: scene.scriptText,
       });
-      await prisma.scene.update({ where: { id: sceneId }, data: { status: 'REVIEW', generatedPreviewUrl: preview.previewUrl } });
+      await prisma.scene.update({ where: { id: sceneId }, data: { status: 'REVIEWING', generatedPreviewUrl: preview.previewUrl } });
       break;
     }
     case 'export-project': {
@@ -32,6 +33,14 @@ const worker = new Worker('wadv-jobs', async (job) => {
           fileUrl: 'https://placehold.co/1920x1080/0d1326/ffffff?text=WADV+Export',
           metadataJson: { completedBy: 'worker', completedAt: new Date().toISOString() },
         },
+      });
+      break;
+    }
+    case 'director-loop': {
+      await directorLoopJob.run({
+        projectId: String(job.data.projectId),
+        triggerType: (job.data.triggerType as 'MANUAL' | 'EVENT' | 'SCHEDULED' | undefined) ?? 'MANUAL',
+        policyMode: (job.data.policyMode as 'suggest_only' | 'safe_auto_fix' | 'studio_autopilot' | undefined) ?? 'safe_auto_fix',
       });
       break;
     }

@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2023",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "resolveJsonModule": true,
@@ -13,11 +17,24 @@
     "jsx": "preserve",
     "baseUrl": ".",
     "paths": {
-      "@wadv/types": ["packages/types/src"],
-      "@wadv/ui": ["packages/ui/src"],
-      "@wadv/config": ["packages/config/src"],
-      "@wadv/lib": ["packages/lib/src"],
-      "@wadv/lib/*": ["packages/lib/src/*"]
+      "@wadv/types": [
+        "packages/types/src"
+      ],
+      "@wadv/ui": [
+        "packages/ui/src"
+      ],
+      "@wadv/config": [
+        "packages/config/src"
+      ],
+      "@wadv/lib": [
+        "packages/lib/src"
+      ],
+      "@wadv/lib/*": [
+        "packages/lib/src/*"
+      ],
+      "@prisma/client": [
+        "packages/prisma-client/src"
+      ]
     }
   }
 }
